@@ -8,9 +8,39 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: (event: SpeechRecognitionEvent) => void;
+  onresult: (_event: SpeechRecognitionEvent) => void;
   onend: () => void;
-  onerror: (event: Event) => void;
+  onerror: (_event: Event) => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(_index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+}
+
+// Type guard for checking if SpeechRecognition is available
+function hasSpeechRecognition(window: Window): window is Window & { SpeechRecognition: new () => SpeechRecognition } {
+  return 'SpeechRecognition' in window;
+}
+
+// Type guard for checking if webkitSpeechRecognition is available
+function hasWebkitSpeechRecognition(window: Window): window is Window & { webkitSpeechRecognition: new () => SpeechRecognition } {
+  return 'webkitSpeechRecognition' in window;
 }
 
 const App: React.FC = () => {
@@ -136,17 +166,23 @@ const App: React.FC = () => {
       }
   
       // 2. Create audio context
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) {
+      const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
         throw new Error('Web Audio API not supported');
       }
       
-      const audioContext = new AudioContext();
+      const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
   
       // 3. Request screen capture (must include video)
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        audio: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 44100
+        },
         video: true, // Required by most browsers
       });
   
@@ -159,7 +195,9 @@ const App: React.FC = () => {
       mediaStreamRef.current = stream;
 
       // 5. Set up speech recognition for speaker audio
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = hasSpeechRecognition(window) ? window.SpeechRecognition :
+                               hasWebkitSpeechRecognition(window) ? window.webkitSpeechRecognition :
+                               null;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition() as SpeechRecognition;
         recognition.continuous = true;
@@ -194,10 +232,11 @@ const App: React.FC = () => {
           }
         };
 
-        recognition.onerror = (event: any) => {
-          console.error('Speech recognition error:', event.error);
+        recognition.onerror = (event: Event) => {
+          const errorEvent = event as ErrorEvent;
+          console.error('Speech recognition error:', errorEvent.error);
           if (isRecording) {
-            alert(`Speech recognition error: ${event.error}`);
+            alert(`Speech recognition error: ${errorEvent.error}`);
             setIsRecording(false);
             setIsPaused(false);
           }
@@ -209,7 +248,7 @@ const App: React.FC = () => {
         throw new Error('Speech recognition is not supported in this browser');
       }
   
-      // 6. Handle when user stops sharing
+      // 7. Handle when user stops sharing
       stream.getAudioTracks()[0].onended = () => {
         if (!isPaused) {
           console.log('Speaker audio track ended');
