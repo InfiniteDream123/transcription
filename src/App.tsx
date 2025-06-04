@@ -10,7 +10,47 @@ interface SpeechRecognition extends EventTarget {
   abort: () => void;
   onresult: (event: SpeechRecognitionEvent) => void;
   onend: () => void;
-  onerror: (event: Event) => void;
+  onerror: (event: ErrorEvent) => void;
+}
+
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+}
+
+// Type guard for checking if SpeechRecognition is available
+function hasSpeechRecognition(window: Window): window is Window & { SpeechRecognition: new () => SpeechRecognition } {
+  return 'SpeechRecognition' in window;
+}
+
+// Type guard for checking if webkitSpeechRecognition is available
+function hasWebkitSpeechRecognition(window: Window): window is Window & { webkitSpeechRecognition: new () => SpeechRecognition } {
+  return 'webkitSpeechRecognition' in window;
+}
+
+// Type guard for checking if AudioContext is available
+function hasAudioContext(window: Window): window is Window & { AudioContext: typeof AudioContext } {
+  return 'AudioContext' in window;
+}
+
+// Type guard for checking if webkitAudioContext is available
+function hasWebkitAudioContext(window: Window): window is Window & { webkitAudioContext: new () => AudioContext } {
+  return 'webkitAudioContext' in window;
 }
 
 const App: React.FC = () => {
@@ -28,7 +68,9 @@ const App: React.FC = () => {
   const finalTranscriptRef = useRef('');
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = hasSpeechRecognition(window) ? window.SpeechRecognition :
+                             hasWebkitSpeechRecognition(window) ? window.webkitSpeechRecognition :
+                             null;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition() as SpeechRecognition;
       recognition.continuous = true;
@@ -65,7 +107,7 @@ const App: React.FC = () => {
         }
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event: ErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         if (isRecording) {
           alert(`Speech recognition error: ${event.error}`);
@@ -86,7 +128,7 @@ const App: React.FC = () => {
       }
       stopSpeakerCapture();
     };
-  }, [selectedLanguage, inputMode]);
+  }, [selectedLanguage, inputMode, isRecording, isPaused]);
 
   useEffect(() => {
     finalTranscriptRef.current = '';
@@ -159,7 +201,9 @@ const App: React.FC = () => {
       mediaStreamRef.current = stream;
 
       // 5. Set up speech recognition for speaker audio
-      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const SpeechRecognition = hasSpeechRecognition(window) ? window.SpeechRecognition :
+                               hasWebkitSpeechRecognition(window) ? window.webkitSpeechRecognition :
+                               null;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition() as SpeechRecognition;
         recognition.continuous = true;
@@ -194,7 +238,7 @@ const App: React.FC = () => {
           }
         };
 
-        recognition.onerror = (event: any) => {
+        recognition.onerror = (event: ErrorEvent) => {
           console.error('Speech recognition error:', event.error);
           if (isRecording) {
             alert(`Speech recognition error: ${event.error}`);
