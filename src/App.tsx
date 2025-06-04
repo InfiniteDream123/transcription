@@ -8,39 +8,9 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: (_event: SpeechRecognitionEvent) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
   onend: () => void;
-  onerror: (_event: ErrorEvent) => void;
-}
-
-interface SpeechRecognitionEvent {
-  resultIndex: number;
-  results: SpeechRecognitionResultList;
-}
-
-interface SpeechRecognitionResultList {
-  length: number;
-  item(_index: number): SpeechRecognitionResult;
-  [index: number]: SpeechRecognitionResult;
-}
-
-interface SpeechRecognitionResult {
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternative;
-}
-
-interface SpeechRecognitionAlternative {
-  transcript: string;
-}
-
-// Type guard for checking if SpeechRecognition is available
-function hasSpeechRecognition(window: Window): window is Window & { SpeechRecognition: new () => SpeechRecognition } {
-  return 'SpeechRecognition' in window;
-}
-
-// Type guard for checking if webkitSpeechRecognition is available
-function hasWebkitSpeechRecognition(window: Window): window is Window & { webkitSpeechRecognition: new () => SpeechRecognition } {
-  return 'webkitSpeechRecognition' in window;
+  onerror: (event: Event) => void;
 }
 
 const App: React.FC = () => {
@@ -58,9 +28,7 @@ const App: React.FC = () => {
   const finalTranscriptRef = useRef('');
 
   useEffect(() => {
-    const SpeechRecognition = hasSpeechRecognition(window) ? window.SpeechRecognition :
-                             hasWebkitSpeechRecognition(window) ? window.webkitSpeechRecognition :
-                             null;
+    const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (SpeechRecognition) {
       const recognition = new SpeechRecognition() as SpeechRecognition;
       recognition.continuous = true;
@@ -97,7 +65,7 @@ const App: React.FC = () => {
         }
       };
 
-      recognition.onerror = (event: ErrorEvent) => {
+      recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error);
         if (isRecording) {
           alert(`Speech recognition error: ${event.error}`);
@@ -118,7 +86,7 @@ const App: React.FC = () => {
       }
       stopSpeakerCapture();
     };
-  }, [selectedLanguage, inputMode, isRecording, isPaused]);
+  }, [selectedLanguage, inputMode]);
 
   useEffect(() => {
     finalTranscriptRef.current = '';
@@ -168,12 +136,12 @@ const App: React.FC = () => {
       }
   
       // 2. Create audio context
-      const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioContextClass) {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) {
         throw new Error('Web Audio API not supported');
       }
       
-      const audioContext = new AudioContextClass();
+      const audioContext = new AudioContext();
       audioContextRef.current = audioContext;
   
       // 3. Request screen capture (must include video)
@@ -191,9 +159,7 @@ const App: React.FC = () => {
       mediaStreamRef.current = stream;
 
       // 5. Set up speech recognition for speaker audio
-      const SpeechRecognition = hasSpeechRecognition(window) ? window.SpeechRecognition :
-                               hasWebkitSpeechRecognition(window) ? window.webkitSpeechRecognition :
-                               null;
+      const SpeechRecognition = window.SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition() as SpeechRecognition;
         recognition.continuous = true;
@@ -228,7 +194,7 @@ const App: React.FC = () => {
           }
         };
 
-        recognition.onerror = (event: ErrorEvent) => {
+        recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
           if (isRecording) {
             alert(`Speech recognition error: ${event.error}`);
