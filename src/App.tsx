@@ -8,9 +8,9 @@ interface SpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   abort: () => void;
-  onresult: (event: SpeechRecognitionEvent) => void;
+  onresult: (_event: SpeechRecognitionEvent) => void;
   onend: () => void;
-  onerror: (event: ErrorEvent) => void;
+  onerror: (_event: ErrorEvent) => void;
 }
 
 interface SpeechRecognitionEvent {
@@ -20,7 +20,7 @@ interface SpeechRecognitionEvent {
 
 interface SpeechRecognitionResultList {
   length: number;
-  item(index: number): SpeechRecognitionResult;
+  item(_index: number): SpeechRecognitionResult;
   [index: number]: SpeechRecognitionResult;
 }
 
@@ -41,16 +41,6 @@ function hasSpeechRecognition(window: Window): window is Window & { SpeechRecogn
 // Type guard for checking if webkitSpeechRecognition is available
 function hasWebkitSpeechRecognition(window: Window): window is Window & { webkitSpeechRecognition: new () => SpeechRecognition } {
   return 'webkitSpeechRecognition' in window;
-}
-
-// Type guard for checking if AudioContext is available
-function hasAudioContext(window: Window): window is Window & { AudioContext: typeof AudioContext } {
-  return 'AudioContext' in window;
-}
-
-// Type guard for checking if webkitAudioContext is available
-function hasWebkitAudioContext(window: Window): window is Window & { webkitAudioContext: new () => AudioContext } {
-  return 'webkitAudioContext' in window;
 }
 
 const App: React.FC = () => {
@@ -178,12 +168,12 @@ const App: React.FC = () => {
       }
   
       // 2. Create audio context
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioContext) {
+      const AudioContextClass = window.AudioContext || (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (!AudioContextClass) {
         throw new Error('Web Audio API not supported');
       }
       
-      const audioContext = new AudioContext();
+      const audioContext = new AudioContextClass();
       audioContextRef.current = audioContext;
   
       // 3. Request screen capture (must include video)
